@@ -11,10 +11,10 @@
                 <span class="brand-mark" aria-hidden="true"><img src="clavisflow-icon.png" alt=""></span>
                 <span>ClavisFlow</span>
             </a>
-            <h1>Access不要の構造確認アプリ「アクセスエクスプローラー」</h1>
+            <h1>Access不要の確認アプリ「アクセスエクスプローラー」</h1>
             <p class="lead-copy">
-                .accdb / .mdb ファイルのテーブル、レコード数、クエリ、SQL、フォーム・レポート・マクロ・モジュールなど各種オブジェクト一覧をブラウザ上で解析。<br />
-                Accessがなくても「これどういうAccessだっけ？」をすぐ解決します。
+                Accessファイルのテーブル、レコード、クエリ、SQL、各種オブジェクト一覧をブラウザ上で瞬時に解析。<br />
+                Accessがなくても「これどういうAccessだっけ？」をすぐ確認できます。
             </p>
         </div>
     </div>
@@ -25,10 +25,10 @@
             <div>
                 <label class="upload-label" for="accessFile">Access ファイルを選択またはドロップ</label>
                 <p>.accdb / .mdb 対応。最大 300MB。</p>
-                <p>Access を起動せずに、構造と主要オブジェクトをブラウザ内で確認します。</p>
+                <p>ファイルはサーバーに送信されず、すべての解析をブラウザ上で安全に行います。</p>
             </div>
         </div>
-        <InputFile id="accessFile" class="@FileInputClass()" OnChange="AnalyzeFileAsync" accept=".accdb,.mdb" disabled="@isAnalyzing" />
+        <InputFile id="accessFile" class="@FileInputClass()" OnChange="AnalyzeFileAsync" accept=".accdb,.mdb" />
 
         @if (isAnalyzing)
         {
