@@ -1,0 +1,414 @@
+@page "/"
+@inject AccessDatabaseAnalyzer Analyzer
+@inject IJSRuntime JsRuntime
+
+<PageTitle>ClavisFlow | アクセスエクスプローラー</PageTitle>
+
+<section class="diagnostics-shell @(result is null ? "initial" : "has-result")">
+    <div class="workspace-title">
+        <div>
+            <a class="product-brand" href="https://clavisflow.net/">
+                <span class="brand-mark" aria-hidden="true"><img src="clavisflow-icon.png" alt=""></span>
+                <span>ClavisFlow</span>
+            </a>
+            <h1>Access不要の構造確認アプリ「アクセスエクスプローラー」</h1>
+            <p class="lead-copy">
+                .accdb / .mdb ファイルのテーブル、レコード数、クエリ、SQL、フォーム・レポート・マクロ・モジュールなど各種オブジェクト一覧をブラウザ上で解析。<br />
+                Accessがなくても「これどういうAccessだっけ？」をすぐ解決します。
+            </p>
+        </div>
+    </div>
+
+    <div class="upload-panel @(isAnalyzing ? "is-analyzing" : string.Empty)" aria-busy="@isAnalyzing">
+        <div class="upload-copy">
+            <span class="upload-icon">AC</span>
+            <div>
+                <label class="upload-label" for="accessFile">Access ファイルを選択またはドロップ</label>
+                <p>.accdb / .mdb 対応。最大 300MB。</p>
+                <p>Access を起動せずに、構造と主要オブジェクトをブラウザ内で確認します。</p>
+            </div>
+        </div>
+        <InputFile id="accessFile" class="@FileInputClass()" OnChange="AnalyzeFileAsync" accept=".accdb,.mdb" disabled="@isAnalyzing" />
+
+        @if (isAnalyzing)
+        {
+            <div class="analysis-status" role="status">
+                <span class="scan-dot" aria-hidden="true"></span>
+                <div>
+                    <strong>解析中</strong>
+                    <p>Access カタログ、スキーマ、件数、クエリ SQL を読み取っています。</p>
+                </div>
+            </div>
+        }
+        else if (!string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <p class="status error">@errorMessage</p>
+        }
+    </div>
+
+    @if (result is not null)
+    {
+        <section class="structure-brief">
+            <div>
+                <span class="brief-label">構造確認結果</span>
+                <h2>@result.FileName</h2>
+                <p>@result.AccessVersion / @FormatBytes(result.FileSizeBytes) / @result.Summary.TableCount.ToString("N0") テーブル / @result.Summary.QueryCount.ToString("N0") クエリ</p>
+            </div>
+            <div class="brief-actions">
+                <button type="button" class="secondary-command" @onclick="DownloadJsonAsync">JSON出力</button>
+            </div>
+        </section>
+
+        <section class="summary-strip">
+            <div>
+                <span>テーブル</span>
+                <strong>@result.Summary.TableCount.ToString("N0")</strong>
+            </div>
+            <div>
+                <span>列</span>
+                <strong>@TotalColumnCount.ToString("N0")</strong>
+            </div>
+            <div>
+                <span>総レコード</span>
+                <strong>@result.Summary.TotalRecordCount.ToString("N0")</strong>
+            </div>
+            <div>
+                <span>クエリSQL</span>
+                <strong>@($"{result.Summary.QuerySqlCapturedCount:N0}/{result.Summary.QueryCount:N0}")</strong>
+            </div>
+        </section>
+
+        <section class="workspace">
+            <div class="tab-bar" role="tablist" aria-label="構造確認ビュー">
+                <button type="button" class="@TabClass("overview")" @onclick="@(() => SelectTab("overview"))">概要</button>
+                <button type="button" class="@TabClass("tables")" @onclick="@(() => SelectTab("tables"))">テーブル</button>
+                <button type="button" class="@TabClass("queries")" @onclick="@(() => SelectTab("queries"))">クエリ</button>
+                <button type="button" class="@TabClass("objects")" @onclick="@(() => SelectTab("objects"))">オブジェクト</button>
+                <button type="button" class="@TabClass("schema")" @onclick="@(() => SelectTab("schema"))">スキーマ</button>
+                <button type="button" class="@TabClass("logs")" @onclick="@(() => SelectTab("logs"))">読み取りログ</button>
+            </div>
+
+            @if (activeTab == "overview")
+            {
+                <section class="overview-grid">
+                    <article class="panel">
+                        <div class="panel-title">
+                            <h2>テーブル概況</h2>
+                            <span>@result.Tables.Count.ToString("N0") 件</span>
+                        </div>
+                        <div class="ranked-list">
+                            @foreach (var table in LargestTables.Take(8))
+                            {
+                                <button type="button" class="ranked-row" @onclick="@(() => ShowTable(table.Name))">
+                                    <span>@table.Name</span>
+                                    <em>@(table.RecordCount?.ToString("N0") ?? "-") 件</em>
+                                    <small>@table.Columns.Count.ToString("N0") 列</small>
+                                </button>
+                            }
+                        </div>
+                    </article>
+
+                    <article class="panel">
+                        <div class="panel-title">
+                            <h2>オブジェクト分布</h2>
+                            <span>@ObjectTotal.ToString("N0") 件</span>
+                        </div>
+                        <div class="object-summary-grid">
+                            <button type="button" @onclick="@(() => SelectTab("tables"))"><span>テーブル</span><strong>@result.Summary.TableCount</strong></button>
+                            <button type="button" @onclick="@(() => SelectTab("queries"))"><span>クエリ</span><strong>@result.Summary.QueryCount</strong></button>
+                            <button type="button" @onclick="@(() => SelectTab("objects"))"><span>フォーム</span><strong>@result.Summary.FormCount</strong></button>
+                            <button type="button" @onclick="@(() => SelectTab("objects"))"><span>レポート</span><strong>@result.Summary.ReportCount</strong></button>
+                            <button type="button" @onclick="@(() => SelectTab("objects"))"><span>マクロ</span><strong>@result.Summary.MacroCount</strong></button>
+                            <button type="button" @onclick="@(() => SelectTab("objects"))"><span>モジュール</span><strong>@result.Summary.ModuleCount</strong></button>
+                        </div>
+                    </article>
+
+                    <article class="panel">
+                        <div class="panel-title">
+                            <h2>クエリ種別</h2>
+                            <span>@result.Queries.Count.ToString("N0") 件</span>
+                        </div>
+                        <div class="kind-cloud">
+                            @foreach (var item in QueryKindCounts)
+                            {
+                                <button type="button" @onclick="@(() => ShowQueries(item.Kind))">
+                                    <span>@item.Kind</span>
+                                    <strong>@item.Count.ToString("N0")</strong>
+                                </button>
+                            }
+                        </div>
+                    </article>
+
+                    <article class="panel">
+                        <div class="panel-title">
+                            <h2>すぐ見る</h2>
+                            <span>探索ショートカット</span>
+                        </div>
+                        <div class="shortcut-list">
+                            <button type="button" @onclick="@(() => ShowTable(string.Empty))">テーブルと列を見る</button>
+                            <button type="button" @onclick="@(() => SelectTab("queries"))">クエリSQLを見る</button>
+                            <button type="button" @onclick="@(() => SelectTab("objects"))">フォーム・レポート等を見る</button>
+                            <button type="button" @onclick="@(() => SelectTab("schema"))">CREATE TABLE を見る</button>
+                        </div>
+                    </article>
+                </section>
+            }
+            else if (activeTab == "tables")
+            {
+                <div class="toolbar explorer-toolbar">
+                    <label class="select-field">
+                        <span>テーブル</span>
+                        <select class="select-control" @bind="selectedTableName">
+                            <option value="">すべてのテーブル</option>
+                            @foreach (var table in TableOptions)
+                            {
+                                <option value="@table.Name">@table.Name (@table.Columns.Count.ToString("N0") 列)</option>
+                            }
+                        </select>
+                    </label>
+                    <div class="segmented-control" aria-label="テーブル並び順">
+                        <button type="button" class="@SortClass("records")" @onclick="@(() => tableSort = "records")">件数順</button>
+                        <button type="button" class="@SortClass("name")" @onclick="@(() => tableSort = "name")">名前順</button>
+                        <button type="button" class="@SortClass("columns")" @onclick="@(() => tableSort = "columns")">列数順</button>
+                    </div>
+                    <span>@OrderedTables.Count().ToString("N0") / @result.Tables.Count.ToString("N0")</span>
+                </div>
+                <div class="table-list">
+                    @foreach (var table in OrderedTables)
+                    {
+                        <article class="table-card">
+                            <div class="table-card-head">
+                                <div>
+                                    <strong>@table.Name</strong>
+                                    <span>@table.Columns.Count.ToString("N0") 列</span>
+                                </div>
+                                <em>@(table.RecordCount?.ToString("N0") ?? "未取得") 件</em>
+                            </div>
+                            <div class="column-grid">
+                                @foreach (var column in table.Columns)
+                                {
+                                    <span title="@column.Name"><b>@column.Name</b><small>@ColumnType(column)</small></span>
+                                }
+                            </div>
+                        </article>
+                    }
+                </div>
+            }
+            else if (activeTab == "queries")
+            {
+                <div class="toolbar explorer-toolbar">
+                    <label class="select-field">
+                        <span>クエリ</span>
+                        <select class="select-control" @bind="selectedQueryName">
+                            <option value="">すべてのクエリ</option>
+                            @foreach (var query in QueryOptions)
+                            {
+                                <option value="@query.Name">@query.Name</option>
+                            }
+                        </select>
+                    </label>
+                    <label class="select-field">
+                        <span>種別</span>
+                        <select class="select-control compact" @bind="queryKindFilter">
+                            <option value="">すべて</option>
+                        @foreach (var item in QueryKindCounts)
+                        {
+                                <option value="@item.Kind">@item.Kind (@item.Count.ToString("N0"))</option>
+                        }
+                        </select>
+                    </label>
+                    <span>@FilteredQueries.Count().ToString("N0") / @result.Queries.Count.ToString("N0")</span>
+                </div>
+                <div class="query-table-wrap">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>クエリ名</th>
+                                <th>種別</th>
+                                <th>SQL</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var query in FilteredQueries)
+                            {
+                                <tr>
+                                    <td>@query.Name</td>
+                                    <td><span class="kind">@query.Kind</span></td>
+                                    <td>
+                                        <pre class="sql-scroll">@(query.SqlCaptured ? query.Sql : "初期解析では未取得")</pre>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else if (activeTab == "objects")
+            {
+                <div class="object-grid">
+                    <ObjectList Title="フォーム" Items="@result.Objects.Forms" />
+                    <ObjectList Title="レポート" Items="@result.Objects.Reports" />
+                    <ObjectList Title="マクロ" Items="@result.Objects.Macros" />
+                    <ObjectList Title="モジュール" Items="@result.Objects.Modules" />
+                    <ObjectList Title="リレーション" Items="@result.Objects.Relationships" />
+                    <ObjectList Title="リンクテーブル" Items="@result.Objects.LinkedTables" />
+                </div>
+            }
+            else if (activeTab == "schema")
+            {
+                <pre class="schema-view">@result.SchemaText</pre>
+            }
+            else if (activeTab == "logs")
+            {
+                <div class="query-table-wrap">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>コマンド</th>
+                                <th>時間</th>
+                                <th>stderr</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var diagnostic in result.CommandDiagnostics)
+                            {
+                                <tr>
+                                    <td>@diagnostic.Command</td>
+                                    <td>@diagnostic.ElapsedMs.ToString("N0") ms</td>
+                                    <td>@(diagnostic.Stderr.Count == 0 ? "" : string.Join(" / ", diagnostic.Stderr.Take(3)))</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+    }
+</section>
+
+@code {
+    private AccessDiagnosticsResult? result;
+    private bool isAnalyzing;
+    private string? errorMessage;
+    private string activeTab = "overview";
+    private string selectedTableName = string.Empty;
+    private string tableSort = "records";
+    private string selectedQueryName = string.Empty;
+    private string queryKindFilter = string.Empty;
+
+    private int TotalColumnCount => result?.Tables.Sum(table => table.Columns.Count) ?? 0;
+
+    private int ObjectTotal => result is null
+        ? 0
+        : result.Summary.TableCount + result.Summary.QueryCount + result.Summary.FormCount +
+          result.Summary.ReportCount + result.Summary.MacroCount + result.Summary.ModuleCount;
+
+    private IEnumerable<AccessTableInfo> LargestTables =>
+        result is null
+            ? Enumerable.Empty<AccessTableInfo>()
+            : result.Tables.OrderByDescending(table => table.RecordCount ?? -1).ThenBy(table => table.Name);
+
+    private IEnumerable<AccessTableInfo> TableOptions =>
+        result is null
+            ? Enumerable.Empty<AccessTableInfo>()
+            : result.Tables.OrderBy(table => table.Name, StringComparer.OrdinalIgnoreCase);
+
+    private IEnumerable<AccessTableInfo> FilteredTables =>
+        result?.Tables.Where(table =>
+            string.IsNullOrWhiteSpace(selectedTableName) ||
+            table.Name.Equals(selectedTableName, StringComparison.OrdinalIgnoreCase)) ?? [];
+
+    private IEnumerable<AccessTableInfo> OrderedTables => tableSort switch
+    {
+        "name" => FilteredTables.OrderBy(table => table.Name, StringComparer.OrdinalIgnoreCase),
+        "columns" => FilteredTables.OrderByDescending(table => table.Columns.Count).ThenBy(table => table.Name, StringComparer.OrdinalIgnoreCase),
+        _ => FilteredTables.OrderByDescending(table => table.RecordCount ?? -1).ThenBy(table => table.Name, StringComparer.OrdinalIgnoreCase)
+    };
+
+    private IEnumerable<AccessQueryInfo> FilteredQueries =>
+        result?.Queries.Where(query =>
+            (string.IsNullOrWhiteSpace(queryKindFilter) || query.Kind == queryKindFilter) &&
+            (string.IsNullOrWhiteSpace(selectedQueryName) ||
+             query.Name.Equals(selectedQueryName, StringComparison.OrdinalIgnoreCase))) ?? [];
+
+    private IEnumerable<AccessQueryInfo> QueryOptions =>
+        result is null
+            ? Enumerable.Empty<AccessQueryInfo>()
+            : result.Queries.OrderBy(query => query.Name, StringComparer.OrdinalIgnoreCase);
+
+    private IEnumerable<(string Kind, int Count)> QueryKindCounts =>
+        result is null
+            ? Enumerable.Empty<(string Kind, int Count)>()
+            : result.Queries
+            .GroupBy(query => query.Kind)
+            .Select(group => (Kind: group.Key, Count: group.Count()))
+            .OrderByDescending(item => item.Count)
+            .ThenBy(item => item.Kind, StringComparer.OrdinalIgnoreCase);
+
+    private async Task AnalyzeFileAsync(InputFileChangeEventArgs args)
+    {
+        result = null;
+        errorMessage = null;
+        activeTab = "overview";
+        selectedTableName = string.Empty;
+        selectedQueryName = string.Empty;
+        queryKindFilter = string.Empty;
+        isAnalyzing = true;
+        await InvokeAsync(StateHasChanged);
+        await Task.Yield();
+
+        try
+        {
+            result = await Analyzer.AnalyzeAsync(args.File);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isAnalyzing = false;
+        }
+    }
+
+    private async Task DownloadJsonAsync()
+    {
+        if (result is null)
+        {
+            return;
+        }
+
+        var fileName = $"{Path.GetFileNameWithoutExtension(result.FileName)}-access-explorer.json";
+        await JsRuntime.InvokeVoidAsync("accessDoctorMdb.downloadJson", fileName, result);
+    }
+
+    private void SelectTab(string tab) => activeTab = tab;
+
+    private void ShowTable(string tableName)
+    {
+        selectedTableName = tableName;
+        activeTab = "tables";
+    }
+
+    private void ShowQueries(string kind)
+    {
+        queryKindFilter = kind;
+        selectedQueryName = string.Empty;
+        activeTab = "queries";
+    }
+
+    private string TabClass(string tab) => activeTab == tab ? "active" : string.Empty;
+
+    private string SortClass(string sort) => tableSort == sort ? "active" : string.Empty;
+
+    private string FileInputClass() => isAnalyzing ? "file-input disabled" : "file-input";
+
+    private static string FormatBytes(long bytes)
+    {
+        var megabytes = bytes / 1024d / 1024d;
+        return megabytes >= 1024 ? $"{megabytes / 1024:N2} GB" : $"{megabytes:N2} MB";
+    }
+
+    private static string ColumnType(AccessColumnInfo column) =>
+        column.Size is null ? column.DataType : $"{column.DataType}({column.Size})";
+}

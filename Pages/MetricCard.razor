@@ -1,0 +1,19 @@
+<div class="metric-card @Tone">
+    <span>@Label</span>
+    <strong>@Value</strong>
+    <small>@Note</small>
+</div>
+
+@code {
+    [Parameter]
+    public string Label { get; set; } = string.Empty;
+
+    [Parameter]
+    public string Value { get; set; } = string.Empty;
+
+    [Parameter]
+    public string Note { get; set; } = string.Empty;
+
+    [Parameter]
+    public string Tone { get; set; } = string.Empty;
+}

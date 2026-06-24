@@ -1,0 +1,60 @@
+<article class="object-list">
+    <div>
+        <h3>@Title</h3>
+        <span>@Items.Count.ToString("N0")</span>
+    </div>
+    @if (Items.Count == 0)
+    {
+        <p class="muted">検出なし</p>
+    }
+    else
+    {
+        <ul>
+            @foreach (var item in Items)
+            {
+                <li>
+                    <strong>@item.Name</strong>
+                    @if (!string.IsNullOrWhiteSpace(ObjectMeta(item)))
+                    {
+                        <small>@ObjectMeta(item)</small>
+                    }
+                </li>
+            }
+        </ul>
+    }
+</article>
+
+@code {
+    [Parameter]
+    public string Title { get; set; } = string.Empty;
+
+    [Parameter]
+    public IReadOnlyList<AccessObjectDetail> Items { get; set; } = [];
+
+    private static string ObjectMeta(AccessObjectDetail item)
+    {
+        var values = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(item.DateUpdate))
+        {
+            values.Add($"更新 {item.DateUpdate}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(item.DateCreate))
+        {
+            values.Add($"作成 {item.DateCreate}");
+        }
+
+        if (item.TypeCode is not null)
+        {
+            values.Add($"Type {item.TypeCode}");
+        }
+
+        if (item.Flags is not null)
+        {
+            values.Add($"Flags {item.Flags}");
+        }
+
+        return string.Join(" / ", values);
+    }
+}
