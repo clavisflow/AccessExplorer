@@ -14,11 +14,9 @@
     <meta property="og:url" content="https://accessexplore.clavisflow.net/">
     <link rel="canonical" href="https://accessexplore.clavisflow.net/" />
     <base href="/" />
-    <link rel="preload" id="webassembly" />
     <link rel="stylesheet" href="lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="css/app.css" />
     <link rel="icon" type="image/png" href="clavisflow-icon.png" />
-    <script type="importmap"></script>
 </head>
 
 <body>
@@ -63,7 +61,7 @@
         (() => {
             const search = new URLSearchParams(window.location.search);
             const userAgent = navigator.userAgent || "";
-            const botPattern = /bot|crawler|spider|crawling|googlebot|bingbot|slurp|duckduckbot|baiduspider|yandex|facebookexternalhit|twitterbot|linkedinbot|discordbot|slackbot|linebot/i;
+            const botPattern = /bot|crawler|spider|crawling|googlebot|google-inspectiontool|googleother|adsbot-google|mediapartners-google|bingbot|slurp|duckduckbot|baiduspider|yandex|facebookexternalhit|twitterbot|linkedinbot|discordbot|slackbot|linebot/i;
             const forceBot = search.get("bot") === "1";
             const forceApp = search.get("app") === "1";
 
@@ -73,50 +71,13 @@
             }
 
             document.documentElement.dataset.renderMode = "blazor";
-            document.getElementById("app").innerHTML = `
-                <svg class="loading-progress">
-                    <circle r="40%" cx="50%" cy="50%" />
-                    <circle r="40%" cx="50%" cy="50%" />
-                </svg>
-                <div class="loading-progress-text"></div>`;
-
-            const scripts = [
-                "mdbtools/mdb-ver.js",
-                "mdbtools/mdb-tables.js",
-                "mdbtools/mdb-schema.js",
-                "mdbtools/mdb-count.js",
-                "mdbtools/mdb-queries.js",
-                "mdbtools/mdb-json.js",
-                "access-doctor-mdb.js",
-                "_framework/blazor.webassembly.js"
-            ];
-
-            const resolveAsset = src => {
-                const specifier = src.startsWith("./") ? src : `./${src}`;
-                for (const mapElement of document.querySelectorAll('script[type="importmap"]')) {
-                    try {
-                        const imports = JSON.parse(mapElement.textContent || "{}").imports || {};
-                        const mapped = imports[specifier] || imports[src];
-                        if (mapped) {
-                            return new URL(mapped, document.baseURI).href;
-                        }
-                    } catch {
-                        // Ignore malformed or empty import maps.
-                    }
-                }
-
-                return src;
-            };
-
-            const loadScript = src => new Promise((resolve, reject) => {
+            new Promise((resolve, reject) => {
                 const script = document.createElement("script");
-                script.src = resolveAsset(src);
+                script.src = "app-loader.js";
                 script.onload = resolve;
-                script.onerror = () => reject(new Error(`Failed to load ${src}`));
+                script.onerror = () => reject(new Error("Failed to load app-loader.js"));
                 document.body.appendChild(script);
-            });
-
-            scripts.reduce((chain, src) => chain.then(() => loadScript(src)), Promise.resolve())
+            })
                 .catch(error => {
                     console.error(error);
                     const errorUi = document.getElementById("blazor-error-ui");
