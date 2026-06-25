@@ -197,6 +197,209 @@
         URL.revokeObjectURL(url);
     }
 
+    function escapeHtml(value) {
+        return String(value ?? "")
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll("\"", "&quot;")
+            .replaceAll("'", "&#39;");
+    }
+
+    function formatNumber(value) {
+        const number = Number(value);
+        return Number.isFinite(number) ? number.toLocaleString("ja-JP") : "-";
+    }
+
+    function formatBytes(value) {
+        const bytes = Number(value);
+        if (!Number.isFinite(bytes)) {
+            return "-";
+        }
+
+        const megabytes = bytes / 1024 / 1024;
+        return megabytes >= 1024
+            ? `${(megabytes / 1024).toLocaleString("ja-JP", { maximumFractionDigits: 2 })} GB`
+            : `${megabytes.toLocaleString("ja-JP", { maximumFractionDigits: 2 })} MB`;
+    }
+
+    function columnType(column) {
+        return column?.size === null || column?.size === undefined
+            ? column?.dataType ?? ""
+            : `${column.dataType}(${column.size})`;
+    }
+
+    function renderList(items, itemRenderer) {
+        if (!items || items.length === 0) {
+            return "<p class=\"muted\">なし</p>";
+        }
+
+        return `<ul>${items.map(item => `<li>${itemRenderer(item)}</li>`).join("")}</ul>`;
+    }
+
+    function renderObjectTable(title, items) {
+        const rows = (items ?? []).map(item => `
+            <tr>
+                <td>${escapeHtml(item.name)}</td>
+                <td>${escapeHtml(item.dateCreate ?? "")}</td>
+                <td>${escapeHtml(item.dateUpdate ?? "")}</td>
+                <td>${escapeHtml(item.typeCode ?? "")}</td>
+                <td>${escapeHtml(item.flags ?? "")}</td>
+            </tr>`).join("");
+
+        return `
+            <section class="section">
+                <h2>${escapeHtml(title)}</h2>
+                <p class="section-note">${formatNumber((items ?? []).length)} 件</p>
+                ${rows
+                    ? `<table><thead><tr><th>名前</th><th>作成日</th><th>更新日</th><th>Type</th><th>Flags</th></tr></thead><tbody>${rows}</tbody></table>`
+                    : "<p class=\"muted\">なし</p>"}
+            </section>`;
+    }
+
+    function buildHtmlReport(data) {
+        const generatedAt = new Date().toLocaleString("ja-JP");
+        const summary = data.summary ?? {};
+        const tables = data.tables ?? [];
+        const queries = data.queries ?? [];
+        const objects = data.objects ?? {};
+        const orderedTables = [...tables]
+            .sort((a, b) => Number(b.recordCount ?? -1) - Number(a.recordCount ?? -1) || String(a.name).localeCompare(String(b.name), "ja"));
+
+        const tableRows = tables.map(table => `
+            <section class="table-spec">
+                <h3>${escapeHtml(table.name)}</h3>
+                <dl>
+                    <div><dt>レコード数</dt><dd>${formatNumber(table.recordCount)}</dd></div>
+                    <div><dt>列数</dt><dd>${formatNumber((table.columns ?? []).length)}</dd></div>
+                    <div><dt>インデックス</dt><dd>${formatNumber((table.indexes ?? []).length)}</dd></div>
+                    <div><dt>制約</dt><dd>${formatNumber((table.constraints ?? []).length)}</dd></div>
+                </dl>
+                <table>
+                    <thead><tr><th>列名</th><th>型</th><th>必須</th></tr></thead>
+                    <tbody>
+                        ${(table.columns ?? []).map(column => `
+                            <tr>
+                                <td>${escapeHtml(column.name)}</td>
+                                <td>${escapeHtml(columnType(column))}</td>
+                                <td>${column.isNotNull ? "Yes" : ""}</td>
+                            </tr>`).join("")}
+                    </tbody>
+                </table>
+                <div class="subgrid">
+                    <section>
+                        <h4>インデックス</h4>
+                        ${renderList(table.indexes ?? [], index => `${escapeHtml(index.name)} (${escapeHtml((index.columns ?? []).join(", "))})${index.isPrimaryKey ? " [PK]" : ""}${index.isUnique ? " [UNIQUE]" : ""}`)}
+                    </section>
+                    <section>
+                        <h4>制約</h4>
+                        ${renderList(table.constraints ?? [], constraint => `${escapeHtml(constraint.kind)}: ${escapeHtml(constraint.name)} ${escapeHtml(constraint.definition)}`)}
+                    </section>
+                </div>
+            </section>`).join("");
+
+        const queryRows = queries.map(query => `
+            <tr>
+                <td>${escapeHtml(query.name)}</td>
+                <td>${escapeHtml(query.kind)}</td>
+                <td><pre>${escapeHtml(query.sqlCaptured ? query.sql : "初期解析では未取得")}</pre></td>
+            </tr>`).join("");
+
+        return `<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>${escapeHtml(data.fileName)} - Access解析レポート</title>
+<style>
+:root{--text:#17202a;--muted:#607080;--border:#d6dde6;--soft:#f6f8fb;--ink:#111827;--blue:#2364aa}
+*{box-sizing:border-box}
+body{margin:0;background:#fff;color:var(--text);font-family:"Yu Gothic UI","Meiryo","Segoe UI",Arial,sans-serif;line-height:1.55}
+.page{max-width:1120px;margin:0 auto;padding:32px 28px 48px}
+header{padding:24px 0 18px;border-bottom:3px solid var(--ink)}
+.eyebrow{margin:0 0 8px;color:var(--muted);font-size:.82rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+h1{margin:0 0 10px;color:var(--ink);font-size:1.9rem;line-height:1.25;overflow-wrap:anywhere}
+h2{margin:0 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border);font-size:1.25rem}
+h3{margin:0 0 10px;font-size:1.08rem;overflow-wrap:anywhere}
+h4{margin:0 0 8px;font-size:.95rem}
+.meta{display:flex;flex-wrap:wrap;gap:10px 20px;margin:0;color:var(--muted)}
+.summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:22px 0}
+.metric{padding:12px;border:1px solid var(--border);background:var(--soft)}
+.metric span{display:block;color:var(--muted);font-size:.78rem;font-weight:700}
+.metric strong{display:block;margin-top:4px;font-size:1.35rem}
+.section{margin-top:28px}
+.section-note{margin:0 0 10px;color:var(--muted)}
+table{width:100%;table-layout:fixed;border-collapse:collapse;margin:10px 0 0;font-size:.88rem}
+th,td{padding:8px 9px;border:1px solid var(--border);vertical-align:top;text-align:left}
+td{overflow-wrap:anywhere;word-break:break-word}
+th{background:var(--soft);color:#394858}
+pre{margin:0;max-height:220px;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;overflow:auto;font-family:Consolas,"Courier New",monospace;font-size:.82rem}
+.query-table th:nth-child(1){width:28%}
+.query-table th:nth-child(2){width:14%}
+.query-table th:nth-child(3){width:58%}
+.table-spec{margin-top:18px;padding:14px;border:1px solid var(--border);break-inside:avoid}
+dl{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:0 0 10px}
+dl div{padding:8px;background:var(--soft);border:1px solid var(--border)}
+dt{color:var(--muted);font-size:.76rem;font-weight:700}
+dd{margin:2px 0 0;font-weight:700}
+.subgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+ul{margin:0;padding-left:20px}
+li{margin:3px 0;overflow-wrap:anywhere}
+.muted{margin:0;color:var(--muted)}
+@media print{.page{max-width:none;padding:18mm}pre{max-height:none}.table-spec{page-break-inside:avoid}}
+@media (max-width:760px){.summary,dl,.subgrid{grid-template-columns:1fr}.page{padding:20px 14px}}
+</style>
+</head>
+<body>
+<main class="page">
+<header>
+    <p class="eyebrow">Access解析レポート</p>
+    <h1>${escapeHtml(data.fileName)}</h1>
+    <p class="meta">
+        <span>生成日時: ${escapeHtml(generatedAt)}</span>
+        <span>Access: ${escapeHtml(data.accessVersion)}</span>
+        <span>ファイルサイズ: ${escapeHtml(formatBytes(data.fileSizeBytes))}</span>
+    </p>
+</header>
+
+<section class="summary">
+    <div class="metric"><span>テーブル</span><strong>${formatNumber(summary.tableCount)}</strong></div>
+    <div class="metric"><span>総レコード数</span><strong>${formatNumber(summary.totalRecordCount)}</strong></div>
+    <div class="metric"><span>クエリ</span><strong>${formatNumber(summary.queryCount)}</strong></div>
+    <div class="metric"><span>フォーム/レポート</span><strong>${formatNumber(summary.formCount)} / ${formatNumber(summary.reportCount)}</strong></div>
+    <div class="metric"><span>マクロ</span><strong>${formatNumber(summary.macroCount)}</strong></div>
+    <div class="metric"><span>モジュール</span><strong>${formatNumber(summary.moduleCount)}</strong></div>
+    <div class="metric"><span>リレーション</span><strong>${formatNumber(summary.relationshipCount)}</strong></div>
+    <div class="metric"><span>リンクテーブル</span><strong>${formatNumber(summary.linkedTableCount)}</strong></div>
+</section>
+
+<section class="section">
+    <h2>テーブル一覧</h2>
+    <table><thead><tr><th>テーブル名</th><th>レコード数</th><th>列数</th></tr></thead><tbody>
+        ${orderedTables.map(table => `<tr><td>${escapeHtml(table.name)}</td><td>${formatNumber(table.recordCount)}</td><td>${formatNumber((table.columns ?? []).length)}</td></tr>`).join("")}
+    </tbody></table>
+</section>
+
+<section class="section">
+    <h2>テーブル仕様</h2>
+    ${tableRows || "<p class=\"muted\">なし</p>"}
+</section>
+
+<section class="section">
+    <h2>クエリ仕様</h2>
+    ${queryRows ? `<table class="query-table"><thead><tr><th>クエリ名</th><th>種別</th><th>SQL</th></tr></thead><tbody>${queryRows}</tbody></table>` : "<p class=\"muted\">なし</p>"}
+</section>
+
+${renderObjectTable("フォーム", objects.forms)}
+${renderObjectTable("レポート", objects.reports)}
+${renderObjectTable("マクロ", objects.macros)}
+${renderObjectTable("モジュール", objects.modules)}
+${renderObjectTable("リレーション", objects.relationships)}
+${renderObjectTable("リンクテーブル", objects.linkedTables)}
+</main>
+</body>
+</html>`;
+    }
+
     window.accessDoctorMdb = {
         async analyzeAccessFile(fileBytes, options) {
             const bytes = toUint8Array(fileBytes);
@@ -343,6 +546,10 @@
 
         downloadJson(fileName, data) {
             downloadBlob(fileName, JSON.stringify(data, null, 2), "application/json;charset=utf-8");
+        },
+
+        downloadHtmlReport(fileName, data) {
+            downloadBlob(fileName, buildHtmlReport(data), "text/html;charset=utf-8");
         }
     };
 

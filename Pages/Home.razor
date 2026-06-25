@@ -56,6 +56,7 @@
             </div>
             <div class="brief-actions">
                 <button type="button" class="secondary-command" @onclick="DownloadJsonAsync">JSON出力</button>
+                <button type="button" class="secondary-command" @onclick="DownloadHtmlReportAsync">HTMLレポート出力</button>
             </div>
         </section>
 
@@ -501,6 +502,17 @@
 
         var fileName = $"{Path.GetFileNameWithoutExtension(result.FileName)}-access-explorer.json";
         await JsRuntime.InvokeVoidAsync("accessDoctorMdb.downloadJson", fileName, result);
+    }
+
+    private async Task DownloadHtmlReportAsync()
+    {
+        if (result is null)
+        {
+            return;
+        }
+
+        var fileName = $"{Path.GetFileNameWithoutExtension(result.FileName)}-access-report.html";
+        await JsRuntime.InvokeVoidAsync("accessDoctorMdb.downloadHtmlReport", fileName, result);
     }
 
     private async Task ToggleTablePreviewAsync(AccessTableInfo table)
