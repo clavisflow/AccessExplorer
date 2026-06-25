@@ -1,3 +1,4 @@
+@using System.Globalization
 <article class="object-list">
     <div>
         <h3>@Title</h3>
@@ -12,11 +13,13 @@
         <ul>
             @foreach (var item in Items)
             {
+                var objectMeta = ObjectMeta(item);
+
                 <li>
                     <strong>@item.Name</strong>
-                    @if (!string.IsNullOrWhiteSpace(ObjectMeta(item)))
+                    @if (!string.IsNullOrWhiteSpace(objectMeta))
                     {
-                        <small>@ObjectMeta(item)</small>
+                        <small>@objectMeta</small>
                     }
                 </li>
             }
@@ -35,26 +38,49 @@
     {
         var values = new List<string>();
 
-        if (!string.IsNullOrWhiteSpace(item.DateUpdate))
+        var updatedLabel = BuildObjectDateLabel("更新", item.DateUpdate);
+        if (!string.IsNullOrWhiteSpace(updatedLabel))
         {
-            values.Add($"更新 {item.DateUpdate}");
+            values.Add(updatedLabel);
         }
 
-        if (!string.IsNullOrWhiteSpace(item.DateCreate))
+        var createdLabel = BuildObjectDateLabel("作成", item.DateCreate);
+        if (!string.IsNullOrWhiteSpace(createdLabel))
         {
-            values.Add($"作成 {item.DateCreate}");
-        }
-
-        if (item.TypeCode is not null)
-        {
-            values.Add($"Type {item.TypeCode}");
-        }
-
-        if (item.Flags is not null)
-        {
-            values.Add($"Flags {item.Flags}");
+            values.Add(createdLabel);
         }
 
         return string.Join(" / ", values);
+    }
+
+    private static string? BuildObjectDateLabel(string label, string? value)
+    {
+        var formatted = FormatObjectDate(value);
+        return string.IsNullOrWhiteSpace(formatted)
+            ? null
+            : $"{label} {formatted}";
+    }
+
+    private static string? FormatObjectDate(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        string[] formats =
+        {
+            "M/d/yy H:mm:ss",
+            "MM/dd/yy HH:mm:ss"
+        };
+
+        return DateTimeOffset.TryParseExact(
+            value,
+            formats,
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.None,
+            out var parsed)
+                ? parsed.ToString("yy/MM/dd HH:mm", CultureInfo.InvariantCulture)
+                : value;
     }
 }

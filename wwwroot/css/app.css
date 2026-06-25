@@ -317,32 +317,6 @@ h1 {
     background: rgba(255, 255, 255, 0.12);
 }
 
-.summary-strip {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 12px;
-    margin-top: 16px;
-}
-
-.summary-strip div {
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 14px 16px;
-    background: var(--surface);
-}
-
-.summary-strip span {
-    display: block;
-    margin-bottom: 6px;
-    color: var(--muted);
-    font-size: 0.84rem;
-    font-weight: 800;
-}
-
-.summary-strip strong {
-    color: #111827;
-    font-size: 1.45rem;
-}
 
 .result-hero {
     display: grid;
@@ -970,7 +944,7 @@ h1 {
 }
 
 .object-list li {
-    margin-bottom: 5px;
+    margin-bottom: 6px;
     overflow-wrap: anywhere;
 }
 
@@ -980,12 +954,15 @@ h1 {
 }
 
 .object-list li strong {
+    min-width: 0;
+    overflow-wrap: anywhere;
     font-size: 0.9rem;
     font-weight: 650;
 }
 
 .object-list li small {
     margin-top: 2px;
+    white-space: nowrap;
     color: var(--muted);
     font-size: 0.75rem;
     line-height: 1.35;

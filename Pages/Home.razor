@@ -59,25 +59,6 @@
             </div>
         </section>
 
-        <section class="summary-strip">
-            <div>
-                <span>テーブル</span>
-                <strong>@result.Summary.TableCount.ToString("N0")</strong>
-            </div>
-            <div>
-                <span>列</span>
-                <strong>@TotalColumnCount.ToString("N0")</strong>
-            </div>
-            <div>
-                <span>総レコード</span>
-                <strong>@result.Summary.TotalRecordCount.ToString("N0")</strong>
-            </div>
-            <div>
-                <span>クエリSQL</span>
-                <strong>@($"{result.Summary.QuerySqlCapturedCount:N0}/{result.Summary.QueryCount:N0}")</strong>
-            </div>
-        </section>
-
         <section class="workspace">
             <div class="tab-bar" role="tablist" aria-label="構造確認ビュー">
                 <button type="button" class="@TabClass("overview")" @onclick="@(() => SelectTab("overview"))">概要</button>
@@ -295,8 +276,6 @@
     private string tableSort = "records";
     private string selectedQueryName = string.Empty;
     private string queryKindFilter = string.Empty;
-
-    private int TotalColumnCount => result?.Tables.Sum(table => table.Columns.Count) ?? 0;
 
     private int ObjectTotal => result is null
         ? 0
