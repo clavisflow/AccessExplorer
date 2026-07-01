@@ -5,97 +5,43 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ClavisFlow | アクセスエクスプローラー</title>
-    <meta name="description" content="Accessファイルのテーブル、レコード件数、クエリSQL、各種オブジェクト一覧をブラウザ上で瞬時に解析。Accessがなくても「これはどんなAccessだったか」をすぐ確認できます。" />
-    <meta name="robots" content="index,follow" />
+    <meta name="description" content="Accessファイルのテーブル、レコード、クエリ、SQL、各種オブジェクト一覧をブラウザ上で瞬時に解析。Accessがなくても「これどういうAccessだっけ？」をすぐ確認できます。">
     <meta property="og:title" content="ClavisFlow | アクセスエクスプローラー">
-    <meta property="og:description" content="Accessファイルのテーブル、レコード件数、クエリSQL、各種オブジェクト一覧をブラウザ上で瞬時に解析。Accessがなくても内容を確認できます。">
+    <meta property="og:description"
+          content="Accessファイルのテーブル、レコード、クエリ、SQL、各種オブジェクト一覧をブラウザ上で瞬時に解析。Accessがなくても「これどういうAccessだっけ？」をすぐ確認できます。">
     <meta property="og:type" content="website">
-    <meta property="og:locale" content="ja_JP">
-    <meta property="og:url" content="https://accessexplorer.clavisflow.net/">
-    <meta property="og:site_name" content="ClavisFlow">
-    <meta property="og:image" content="https://accessexplorer.clavisflow.net/ogp.png">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <meta property="og:image:alt" content="ClavisFlow Access Explorer top screen">
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="ClavisFlow | アクセスエクスプローラー">
-    <meta name="twitter:description" content="Accessファイルのテーブル、レコード、クエリ、SQL、各種オブジェクト一覧をブラウザ上で瞬時に解析します。">
-    <meta name="twitter:image" content="https://accessexplorer.clavisflow.net/ogp.png">
-    <link rel="canonical" href="https://accessexplorer.clavisflow.net/" />
+    <meta property="og:url" content="https://accessexplore.clavisflow.net/">
+    <link rel="canonical" href="https://accessexplore.clavisflow.net/" />
     <base href="/" />
+    <link rel="preload" id="webassembly" />
     <link rel="stylesheet" href="lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="css/app.css" />
     <link rel="icon" type="image/png" href="clavisflow-icon.png" />
+    <script type="importmap"></script>
 </head>
 
 <body>
     <div id="app">
-        <main class="diagnostics-shell initial seo-fallback">
-            <div class="workspace-title">
-                <div>
-                    <a class="product-brand" href="https://clavisflow.net/">
-                        <span class="brand-mark" aria-hidden="true"><img src="clavisflow-icon.png" alt=""></span>
-                        <span>ClavisFlow</span>
-                    </a>
-                    <h1>Access不要の確認アプリ「アクセスエクスプローラー」</h1>
-                    <p class="lead-copy">
-                        Accessファイルのテーブル、レコード件数、クエリSQL、フォーム、レポート、マクロ、モジュール、
-                        リレーション、リンクテーブルをブラウザ上で確認できます。
-                    </p>
-                </div>
-            </div>
-
-            <section class="seo-panel">
-                <h2>Accessファイルの構造をブラウザだけで確認</h2>
-                <p>
-                    .accdb / .mdb ファイルをローカルのブラウザ上で読み込み、テーブル一覧、定義、レコード件数、クエリSQL、
-                    フォーム、レポート、マクロ、モジュール、リレーション、リンクテーブルを確認できます。
-                </p>
-                <ul>
-                    <li>ファイルはサーバーへ送信せず、ブラウザ内で解析します。</li>
-                    <li>分析結果はJSONまたは仕様書風HTMLレポートとして出力できます。</li>
-                    <li>テーブルの実データは先頭50件だけをプレビューし、全件はCSVで出力できます。</li>
-                </ul>
-                <p class="seo-app-note">通常のブラウザでは、この後に解析アプリ本体が読み込まれます。</p>
-            </section>
-        </main>
+        <svg class="loading-progress">
+            <circle r="40%" cx="50%" cy="50%" />
+            <circle r="40%" cx="50%" cy="50%" />
+        </svg>
+        <div class="loading-progress-text"></div>
     </div>
 
     <div id="blazor-error-ui">
         An unhandled error has occurred.
         <a href="." class="reload">Reload</a>
-        <span class="dismiss">x</span>
+        <span class="dismiss">🗙</span>
     </div>
-    <script>
-        (() => {
-            const search = new URLSearchParams(window.location.search);
-            const userAgent = navigator.userAgent || "";
-            const botPattern = /bot|crawler|spider|crawling|googlebot|google-inspectiontool|googleother|adsbot-google|mediapartners-google|bingbot|slurp|duckduckbot|baiduspider|yandex|facebookexternalhit|twitterbot|linkedinbot|discordbot|slackbot|linebot/i;
-            const forceBot = search.get("bot") === "1";
-            const forceApp = search.get("app") === "1";
-
-            if (!forceApp && (forceBot || botPattern.test(userAgent))) {
-                document.documentElement.dataset.renderMode = "bot-static";
-                return;
-            }
-
-            document.documentElement.dataset.renderMode = "blazor";
-            new Promise((resolve, reject) => {
-                const script = document.createElement("script");
-                script.src = "app-loader.js";
-                script.onload = resolve;
-                script.onerror = () => reject(new Error("Failed to load app-loader.js"));
-                document.body.appendChild(script);
-            })
-                .catch(error => {
-                    console.error(error);
-                    const errorUi = document.getElementById("blazor-error-ui");
-                    if (errorUi) {
-                        errorUi.style.display = "block";
-                    }
-                });
-        })();
-    </script>
+    <script src="mdbtools/mdb-ver.js"></script>
+    <script src="mdbtools/mdb-tables.js"></script>
+    <script src="mdbtools/mdb-schema.js"></script>
+    <script src="mdbtools/mdb-count.js"></script>
+    <script src="mdbtools/mdb-queries.js"></script>
+    <script src="mdbtools/mdb-json.js"></script>
+    <script src="access-doctor-mdb.js"></script>
+    <script src="_framework/blazor.webassembly#[.{fingerprint}].js"></script>
 </body>
 
 </html>
